@@ -27,6 +27,10 @@ service FoundationService {
 
   // --- Workload Identity (Expansion) ---
   rpc ImpersonateServiceAccount(ImpersonateRequest) returns (DBTokenResponse);
+
+  // --- Cloud Run / Compute (Consolidation) ---
+  rpc RunService(RunServiceRequest) returns (RunServiceResponse);
+  rpc TriggerFunction(TriggerFunctionRequest) returns (TriggerFunctionResponse);
 }
 
 // Vault Messages
@@ -69,3 +73,9 @@ message ImpersonateRequest {
   string target_service_account = 2;
   repeated string scopes = 3;
 }
+
+// Compute Messages
+message RunServiceRequest { string service_name = 1; string image = 2; }
+message RunServiceResponse { string status = 1; string endpoint_url = 2; }
+message TriggerFunctionRequest { string function_name = 1; }
+message TriggerFunctionResponse { string result = 1; }

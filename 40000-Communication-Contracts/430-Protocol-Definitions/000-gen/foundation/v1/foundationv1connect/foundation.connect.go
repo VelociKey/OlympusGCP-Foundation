@@ -66,6 +66,12 @@ const (
 	// FoundationServiceImpersonateServiceAccountProcedure is the fully-qualified name of the
 	// FoundationService's ImpersonateServiceAccount RPC.
 	FoundationServiceImpersonateServiceAccountProcedure = "/olympus.foundation.v1.FoundationService/ImpersonateServiceAccount"
+	// FoundationServiceRunServiceProcedure is the fully-qualified name of the FoundationService's
+	// RunService RPC.
+	FoundationServiceRunServiceProcedure = "/olympus.foundation.v1.FoundationService/RunService"
+	// FoundationServiceTriggerFunctionProcedure is the fully-qualified name of the FoundationService's
+	// TriggerFunction RPC.
+	FoundationServiceTriggerFunctionProcedure = "/olympus.foundation.v1.FoundationService/TriggerFunction"
 )
 
 // FoundationServiceClient is a client for the olympus.foundation.v1.FoundationService service.
@@ -87,6 +93,9 @@ type FoundationServiceClient interface {
 	MintDatabaseToken(context.Context, *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error)
 	// --- Workload Identity (Expansion) ---
 	ImpersonateServiceAccount(context.Context, *connect.Request[v1.ImpersonateRequest]) (*connect.Response[v1.DBTokenResponse], error)
+	// --- Cloud Run / Compute (Consolidation) ---
+	RunService(context.Context, *connect.Request[v1.RunServiceRequest]) (*connect.Response[v1.RunServiceResponse], error)
+	TriggerFunction(context.Context, *connect.Request[v1.TriggerFunctionRequest]) (*connect.Response[v1.TriggerFunctionResponse], error)
 }
 
 // NewFoundationServiceClient constructs a client for the olympus.foundation.v1.FoundationService
@@ -166,6 +175,18 @@ func NewFoundationServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(foundationServiceMethods.ByName("ImpersonateServiceAccount")),
 			connect.WithClientOptions(opts...),
 		),
+		runService: connect.NewClient[v1.RunServiceRequest, v1.RunServiceResponse](
+			httpClient,
+			baseURL+FoundationServiceRunServiceProcedure,
+			connect.WithSchema(foundationServiceMethods.ByName("RunService")),
+			connect.WithClientOptions(opts...),
+		),
+		triggerFunction: connect.NewClient[v1.TriggerFunctionRequest, v1.TriggerFunctionResponse](
+			httpClient,
+			baseURL+FoundationServiceTriggerFunctionProcedure,
+			connect.WithSchema(foundationServiceMethods.ByName("TriggerFunction")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -182,6 +203,8 @@ type foundationServiceClient struct {
 	kMSSign                   *connect.Client[v1.KMSSignRequest, v1.KMSSignResponse]
 	mintDatabaseToken         *connect.Client[v1.DBTokenRequest, v1.DBTokenResponse]
 	impersonateServiceAccount *connect.Client[v1.ImpersonateRequest, v1.DBTokenResponse]
+	runService                *connect.Client[v1.RunServiceRequest, v1.RunServiceResponse]
+	triggerFunction           *connect.Client[v1.TriggerFunctionRequest, v1.TriggerFunctionResponse]
 }
 
 // VaultRead calls olympus.foundation.v1.FoundationService.VaultRead.
@@ -240,6 +263,16 @@ func (c *foundationServiceClient) ImpersonateServiceAccount(ctx context.Context,
 	return c.impersonateServiceAccount.CallUnary(ctx, req)
 }
 
+// RunService calls olympus.foundation.v1.FoundationService.RunService.
+func (c *foundationServiceClient) RunService(ctx context.Context, req *connect.Request[v1.RunServiceRequest]) (*connect.Response[v1.RunServiceResponse], error) {
+	return c.runService.CallUnary(ctx, req)
+}
+
+// TriggerFunction calls olympus.foundation.v1.FoundationService.TriggerFunction.
+func (c *foundationServiceClient) TriggerFunction(ctx context.Context, req *connect.Request[v1.TriggerFunctionRequest]) (*connect.Response[v1.TriggerFunctionResponse], error) {
+	return c.triggerFunction.CallUnary(ctx, req)
+}
+
 // FoundationServiceHandler is an implementation of the olympus.foundation.v1.FoundationService
 // service.
 type FoundationServiceHandler interface {
@@ -260,6 +293,9 @@ type FoundationServiceHandler interface {
 	MintDatabaseToken(context.Context, *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error)
 	// --- Workload Identity (Expansion) ---
 	ImpersonateServiceAccount(context.Context, *connect.Request[v1.ImpersonateRequest]) (*connect.Response[v1.DBTokenResponse], error)
+	// --- Cloud Run / Compute (Consolidation) ---
+	RunService(context.Context, *connect.Request[v1.RunServiceRequest]) (*connect.Response[v1.RunServiceResponse], error)
+	TriggerFunction(context.Context, *connect.Request[v1.TriggerFunctionRequest]) (*connect.Response[v1.TriggerFunctionResponse], error)
 }
 
 // NewFoundationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -335,6 +371,18 @@ func NewFoundationServiceHandler(svc FoundationServiceHandler, opts ...connect.H
 		connect.WithSchema(foundationServiceMethods.ByName("ImpersonateServiceAccount")),
 		connect.WithHandlerOptions(opts...),
 	)
+	foundationServiceRunServiceHandler := connect.NewUnaryHandler(
+		FoundationServiceRunServiceProcedure,
+		svc.RunService,
+		connect.WithSchema(foundationServiceMethods.ByName("RunService")),
+		connect.WithHandlerOptions(opts...),
+	)
+	foundationServiceTriggerFunctionHandler := connect.NewUnaryHandler(
+		FoundationServiceTriggerFunctionProcedure,
+		svc.TriggerFunction,
+		connect.WithSchema(foundationServiceMethods.ByName("TriggerFunction")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/olympus.foundation.v1.FoundationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case FoundationServiceVaultReadProcedure:
@@ -359,6 +407,10 @@ func NewFoundationServiceHandler(svc FoundationServiceHandler, opts ...connect.H
 			foundationServiceMintDatabaseTokenHandler.ServeHTTP(w, r)
 		case FoundationServiceImpersonateServiceAccountProcedure:
 			foundationServiceImpersonateServiceAccountHandler.ServeHTTP(w, r)
+		case FoundationServiceRunServiceProcedure:
+			foundationServiceRunServiceHandler.ServeHTTP(w, r)
+		case FoundationServiceTriggerFunctionProcedure:
+			foundationServiceTriggerFunctionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -410,4 +462,12 @@ func (UnimplementedFoundationServiceHandler) MintDatabaseToken(context.Context, 
 
 func (UnimplementedFoundationServiceHandler) ImpersonateServiceAccount(context.Context, *connect.Request[v1.ImpersonateRequest]) (*connect.Response[v1.DBTokenResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("olympus.foundation.v1.FoundationService.ImpersonateServiceAccount is not implemented"))
+}
+
+func (UnimplementedFoundationServiceHandler) RunService(context.Context, *connect.Request[v1.RunServiceRequest]) (*connect.Response[v1.RunServiceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("olympus.foundation.v1.FoundationService.RunService is not implemented"))
+}
+
+func (UnimplementedFoundationServiceHandler) TriggerFunction(context.Context, *connect.Request[v1.TriggerFunctionRequest]) (*connect.Response[v1.TriggerFunctionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("olympus.foundation.v1.FoundationService.TriggerFunction is not implemented"))
 }
