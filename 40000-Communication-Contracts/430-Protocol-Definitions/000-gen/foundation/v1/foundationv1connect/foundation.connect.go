@@ -60,6 +60,9 @@ const (
 	// FoundationServiceKMSSignProcedure is the fully-qualified name of the FoundationService's KMSSign
 	// RPC.
 	FoundationServiceKMSSignProcedure = "/olympus.foundation.v1.FoundationService/KMSSign"
+	// FoundationServiceMintDatabaseTokenProcedure is the fully-qualified name of the
+	// FoundationService's MintDatabaseToken RPC.
+	FoundationServiceMintDatabaseTokenProcedure = "/olympus.foundation.v1.FoundationService/MintDatabaseToken"
 )
 
 // FoundationServiceClient is a client for the olympus.foundation.v1.FoundationService service.
@@ -77,6 +80,8 @@ type FoundationServiceClient interface {
 	KMSDecrypt(context.Context, *connect.Request[v1.KMSRequest]) (*connect.Response[v1.KMSResponse], error)
 	KMSEncrypt(context.Context, *connect.Request[v1.KMSRequest]) (*connect.Response[v1.KMSResponse], error)
 	KMSSign(context.Context, *connect.Request[v1.KMSSignRequest]) (*connect.Response[v1.KMSSignResponse], error)
+	// --- Database Auth (Deepening) ---
+	MintDatabaseToken(context.Context, *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error)
 }
 
 // NewFoundationServiceClient constructs a client for the olympus.foundation.v1.FoundationService
@@ -144,20 +149,27 @@ func NewFoundationServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(foundationServiceMethods.ByName("KMSSign")),
 			connect.WithClientOptions(opts...),
 		),
+		mintDatabaseToken: connect.NewClient[v1.DBTokenRequest, v1.DBTokenResponse](
+			httpClient,
+			baseURL+FoundationServiceMintDatabaseTokenProcedure,
+			connect.WithSchema(foundationServiceMethods.ByName("MintDatabaseToken")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // foundationServiceClient implements FoundationServiceClient.
 type foundationServiceClient struct {
-	vaultRead      *connect.Client[v1.VaultReadRequest, v1.VaultReadResponse]
-	vaultWrite     *connect.Client[v1.VaultWriteRequest, v1.VaultWriteResponse]
-	createUser     *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
-	verifyToken    *connect.Client[v1.VerifyTokenRequest, v1.VerifyTokenResponse]
-	testIAMPolicy  *connect.Client[v1.TestIAMPolicyRequest, v1.TestIAMPolicyResponse]
-	lookupIdentity *connect.Client[v1.LookupIdentityRequest, v1.LookupIdentityResponse]
-	kMSDecrypt     *connect.Client[v1.KMSRequest, v1.KMSResponse]
-	kMSEncrypt     *connect.Client[v1.KMSRequest, v1.KMSResponse]
-	kMSSign        *connect.Client[v1.KMSSignRequest, v1.KMSSignResponse]
+	vaultRead         *connect.Client[v1.VaultReadRequest, v1.VaultReadResponse]
+	vaultWrite        *connect.Client[v1.VaultWriteRequest, v1.VaultWriteResponse]
+	createUser        *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	verifyToken       *connect.Client[v1.VerifyTokenRequest, v1.VerifyTokenResponse]
+	testIAMPolicy     *connect.Client[v1.TestIAMPolicyRequest, v1.TestIAMPolicyResponse]
+	lookupIdentity    *connect.Client[v1.LookupIdentityRequest, v1.LookupIdentityResponse]
+	kMSDecrypt        *connect.Client[v1.KMSRequest, v1.KMSResponse]
+	kMSEncrypt        *connect.Client[v1.KMSRequest, v1.KMSResponse]
+	kMSSign           *connect.Client[v1.KMSSignRequest, v1.KMSSignResponse]
+	mintDatabaseToken *connect.Client[v1.DBTokenRequest, v1.DBTokenResponse]
 }
 
 // VaultRead calls olympus.foundation.v1.FoundationService.VaultRead.
@@ -205,6 +217,11 @@ func (c *foundationServiceClient) KMSSign(ctx context.Context, req *connect.Requ
 	return c.kMSSign.CallUnary(ctx, req)
 }
 
+// MintDatabaseToken calls olympus.foundation.v1.FoundationService.MintDatabaseToken.
+func (c *foundationServiceClient) MintDatabaseToken(ctx context.Context, req *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error) {
+	return c.mintDatabaseToken.CallUnary(ctx, req)
+}
+
 // FoundationServiceHandler is an implementation of the olympus.foundation.v1.FoundationService
 // service.
 type FoundationServiceHandler interface {
@@ -221,6 +238,8 @@ type FoundationServiceHandler interface {
 	KMSDecrypt(context.Context, *connect.Request[v1.KMSRequest]) (*connect.Response[v1.KMSResponse], error)
 	KMSEncrypt(context.Context, *connect.Request[v1.KMSRequest]) (*connect.Response[v1.KMSResponse], error)
 	KMSSign(context.Context, *connect.Request[v1.KMSSignRequest]) (*connect.Response[v1.KMSSignResponse], error)
+	// --- Database Auth (Deepening) ---
+	MintDatabaseToken(context.Context, *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error)
 }
 
 // NewFoundationServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -284,6 +303,12 @@ func NewFoundationServiceHandler(svc FoundationServiceHandler, opts ...connect.H
 		connect.WithSchema(foundationServiceMethods.ByName("KMSSign")),
 		connect.WithHandlerOptions(opts...),
 	)
+	foundationServiceMintDatabaseTokenHandler := connect.NewUnaryHandler(
+		FoundationServiceMintDatabaseTokenProcedure,
+		svc.MintDatabaseToken,
+		connect.WithSchema(foundationServiceMethods.ByName("MintDatabaseToken")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/olympus.foundation.v1.FoundationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case FoundationServiceVaultReadProcedure:
@@ -304,6 +329,8 @@ func NewFoundationServiceHandler(svc FoundationServiceHandler, opts ...connect.H
 			foundationServiceKMSEncryptHandler.ServeHTTP(w, r)
 		case FoundationServiceKMSSignProcedure:
 			foundationServiceKMSSignHandler.ServeHTTP(w, r)
+		case FoundationServiceMintDatabaseTokenProcedure:
+			foundationServiceMintDatabaseTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -347,4 +374,8 @@ func (UnimplementedFoundationServiceHandler) KMSEncrypt(context.Context, *connec
 
 func (UnimplementedFoundationServiceHandler) KMSSign(context.Context, *connect.Request[v1.KMSSignRequest]) (*connect.Response[v1.KMSSignResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("olympus.foundation.v1.FoundationService.KMSSign is not implemented"))
+}
+
+func (UnimplementedFoundationServiceHandler) MintDatabaseToken(context.Context, *connect.Request[v1.DBTokenRequest]) (*connect.Response[v1.DBTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("olympus.foundation.v1.FoundationService.MintDatabaseToken is not implemented"))
 }

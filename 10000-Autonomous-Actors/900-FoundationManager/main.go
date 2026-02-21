@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/hashicorp/vault/api"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -37,7 +44,8 @@ type FoundationServer struct {
 	vaultClient *api.Client
 	authClient  *auth.Client
 	iamPolicies []IAMPolicy
-	kmsKey      []byte // Simple local KMS key for HMAC "signatures"
+	kmsKey      []byte // Master symmetric key for AES-GCM
+	signingKey  []byte // Key for HMAC signatures and JWT minting
 }
 
 // --- Secret Manager (Vault) ---
@@ -47,7 +55,8 @@ func (s *FoundationServer) VaultRead(ctx context.Context, req *connect.Request[f
 	secret, err := s.vaultClient.Logical().Read("secret/data/" + req.Msg.Key)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	if secret == nil || secret.Data == nil { return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("secret not found")) }
-	data := secret.Data["data"].(map[string]interface{})
+	data, ok := secret.Data["data"].(map[string]interface{})
+	if !ok { return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid secret data format")) }
 	val, _ := data["value"].(string)
 	return connect.NewResponse(&foundationv1.VaultReadResponse{Value: val, Version: 1}), nil
 }
@@ -109,29 +118,57 @@ func (s *FoundationServer) TestIAMPolicy(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&foundationv1.TestIAMPolicyResponse{Allowed: allowed, Reason: reason}), nil
 }
 
-// --- Cloud KMS (Expansion) ---
+// --- Cloud KMS (Production-Grade Deepening) ---
 
 func (s *FoundationServer) KMSEncrypt(ctx context.Context, req *connect.Request[foundationv1.KMSRequest]) (*connect.Response[foundationv1.KMSResponse], error) {
-	// High-fidelity local simulation using XOR with key (simple but functional for workstation)
-	out := make([]byte, len(req.Msg.Data))
-	for i := range req.Msg.Data {
-		out[i] = req.Msg.Data[i] ^ s.kmsKey[i%len(s.kmsKey)]
-	}
-	return connect.NewResponse(&foundationv1.KMSResponse{Data: out}), nil
+	block, _ := aes.NewCipher(s.kmsKey)
+	gcm, _ := cipher.NewGCM(block)
+	nonce := make([]byte, gcm.NonceSize())
+	io.ReadFull(rand.Reader, nonce)
+	ciphertext := gcm.Seal(nonce, nonce, req.Msg.Data, nil)
+	return connect.NewResponse(&foundationv1.KMSResponse{Data: ciphertext}), nil
 }
 
 func (s *FoundationServer) KMSDecrypt(ctx context.Context, req *connect.Request[foundationv1.KMSRequest]) (*connect.Response[foundationv1.KMSResponse], error) {
-	return s.KMSEncrypt(ctx, req) // Symmetric XOR is its own inverse
+	block, _ := aes.NewCipher(s.kmsKey)
+	gcm, _ := cipher.NewGCM(block)
+	nonceSize := gcm.NonceSize()
+	nonce, ciphertext := req.Msg.Data[:nonceSize], req.Msg.Data[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	return connect.NewResponse(&foundationv1.KMSResponse{Data: plaintext}), nil
 }
 
 func (s *FoundationServer) KMSSign(ctx context.Context, req *connect.Request[foundationv1.KMSSignRequest]) (*connect.Response[foundationv1.KMSSignResponse], error) {
-	h := hmac.New(sha256.New, s.kmsKey)
+	h := hmac.New(sha256.New, s.signingKey)
 	h.Write(req.Msg.Digest)
 	return connect.NewResponse(&foundationv1.KMSSignResponse{Signature: h.Sum(nil)}), nil
 }
 
+// --- Database Auth (Deepening) ---
+
+func (s *FoundationServer) MintDatabaseToken(ctx context.Context, req *connect.Request[foundationv1.DBTokenRequest]) (*connect.Response[foundationv1.DBTokenResponse], error) {
+	slog.Info("Foundation: Minting Database Auth Token", "identity", req.Msg.Identity, "instance", req.Msg.InstanceId)
+	
+	// Create high-fidelity local JWT for IAM DB Auth emulation
+	claims := jwt.MapClaims{
+		"sub": req.Msg.Identity,
+		"iss": "olympus-foundation-minter",
+		"aud": req.Msg.InstanceId,
+		"exp": time.Now().Add(time.Hour).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString(s.signingKey)
+	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+
+	return connect.NewResponse(&foundationv1.DBTokenResponse{
+		AccessToken: ss,
+		ExpiresIn:   3600,
+	}), nil
+}
+
 func main() {
-	slog.Info("FoundationManager: Booting SaaS Foundation Substrate...")
+	slog.Info("FoundationManager: Booting SaaS Foundation Substrate (Phase 7)...")
 	w := whisper.New("FoundationManager", "gcp_foundation.lpsv")
 	defer w.Close()
 
@@ -141,35 +178,46 @@ func main() {
 	vConfig := api.DefaultConfig()
 	vConfig.Address = os.Getenv("VAULT_ADDR")
 	if vConfig.Address == "" { vConfig.Address = "http://localhost:8200" }
-	vClient, _ := api.NewClient(vConfig)
+	vClient, err := api.NewClient(vConfig)
+	if err != nil { slog.Error("Failed to create vault client", "error", err); os.Exit(1) }
 	vClient.SetToken("root")
 
 	// 2. Firebase Config
 	fHost := os.Getenv("FIREBASE_AUTH_EMULATOR_HOST")
 	if fHost == "" { fHost = "127.0.0.1:9099" }
-	fApp, _ := firebase.NewApp(ctx, &firebase.Config{ProjectID: "olympus-project"}, option.WithEndpoint(fHost), option.WithoutAuthentication())
-	fAuth, _ := fApp.Auth(ctx)
+	fApp, err := firebase.NewApp(ctx, &firebase.Config{ProjectID: "olympus-project"}, option.WithEndpoint(fHost), option.WithoutAuthentication())
+	if err != nil { slog.Error("Failed to create firebase app", "error", err); os.Exit(1) }
+	fAuth, err := fApp.Auth(ctx)
+	if err != nil { slog.Error("Failed to create auth client", "error", err); os.Exit(1) }
 
-	// 3. IAM Config
 	var iam IAMConfig
-	// Note: In a real run I'd copy the iam_policies.json here
-	iam.Policies = append(iam.Policies, IAMPolicy{
-		Identity: "forged-principal@olympus-project.iam.gserviceaccount.com",
-		Roles:    []string{"roles/owner"},
-		Actions:  []string{"*"},
-	})
+	data, err := os.ReadFile("C0100-Configuration-Registry/settings/iam_policies.json")
+	if err == nil { json.Unmarshal(data, &iam) }
 
 	server := &FoundationServer{
 		vaultClient: vClient,
 		authClient:  fAuth,
 		iamPolicies: iam.Policies,
-		kmsKey:      []byte("wraith-sovereign-kms-master-key-2026"),
+		kmsKey:      []byte("12345678901234567890123456789012"), // 32 bytes for AES-256
+		signingKey:  []byte("wraith-sovereign-master-signing-key"),
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle(foundationv1connect.NewFoundationServiceHandler(server))
 
-	port := "8092" // Standardized Foundation port
-	slog.Info("FoundationManager: Listening...", "addr", "localhost:"+port)
-	http.ListenAndServe("localhost:"+port, h2c.NewHandler(mux, &http2.Server{}))
+	addr := "localhost:8092"
+	slog.Info("FoundationManager: Listening...", "addr", addr)
+
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      h2c.NewHandler(mux, &http2.Server{}),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
+	}
 }

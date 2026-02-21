@@ -21,6 +21,9 @@ service FoundationService {
   rpc KMSDecrypt(KMSRequest) returns (KMSResponse);
   rpc KMSEncrypt(KMSRequest) returns (KMSResponse);
   rpc KMSSign(KMSSignRequest) returns (KMSSignResponse);
+
+  // --- Database Auth (Deepening) ---
+  rpc MintDatabaseToken(DBTokenRequest) returns (DBTokenResponse);
 }
 
 // Vault Messages
@@ -46,3 +49,14 @@ message KMSRequest { string key_id = 1; bytes data = 2; }
 message KMSResponse { bytes data = 1; }
 message KMSSignRequest { string key_id = 1; bytes digest = 2; }
 message KMSSignResponse { bytes signature = 1; }
+
+// Database Auth Messages
+message DBTokenRequest {
+  string identity = 1;
+  string instance_id = 2;
+}
+
+message DBTokenResponse {
+  string access_token = 1;
+  int64 expires_in = 2;
+}

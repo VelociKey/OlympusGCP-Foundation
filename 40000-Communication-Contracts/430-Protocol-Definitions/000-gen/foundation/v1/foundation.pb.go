@@ -825,6 +825,111 @@ func (x *KMSSignResponse) GetSignature() []byte {
 	return nil
 }
 
+// Database Auth Messages
+type DBTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Identity      string                 `protobuf:"bytes,1,opt,name=identity,proto3" json:"identity,omitempty"`
+	InstanceId    string                 `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DBTokenRequest) Reset() {
+	*x = DBTokenRequest{}
+	mi := &file_olympus_foundation_v1_foundation_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DBTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DBTokenRequest) ProtoMessage() {}
+
+func (x *DBTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_olympus_foundation_v1_foundation_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DBTokenRequest.ProtoReflect.Descriptor instead.
+func (*DBTokenRequest) Descriptor() ([]byte, []int) {
+	return file_olympus_foundation_v1_foundation_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DBTokenRequest) GetIdentity() string {
+	if x != nil {
+		return x.Identity
+	}
+	return ""
+}
+
+func (x *DBTokenRequest) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+type DBTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	ExpiresIn     int64                  `protobuf:"varint,2,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DBTokenResponse) Reset() {
+	*x = DBTokenResponse{}
+	mi := &file_olympus_foundation_v1_foundation_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DBTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DBTokenResponse) ProtoMessage() {}
+
+func (x *DBTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_olympus_foundation_v1_foundation_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DBTokenResponse.ProtoReflect.Descriptor instead.
+func (*DBTokenResponse) Descriptor() ([]byte, []int) {
+	return file_olympus_foundation_v1_foundation_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DBTokenResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *DBTokenResponse) GetExpiresIn() int64 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
 var File_olympus_foundation_v1_foundation_proto protoreflect.FileDescriptor
 
 const file_olympus_foundation_v1_foundation_proto_rawDesc = "" +
@@ -875,7 +980,15 @@ const file_olympus_foundation_v1_foundation_proto_rawDesc = "" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12\x16\n" +
 	"\x06digest\x18\x02 \x01(\fR\x06digest\"/\n" +
 	"\x0fKMSSignResponse\x12\x1c\n" +
-	"\tsignature\x18\x01 \x01(\fR\tsignature2\xfe\x06\n" +
+	"\tsignature\x18\x01 \x01(\fR\tsignature\"M\n" +
+	"\x0eDBTokenRequest\x12\x1a\n" +
+	"\bidentity\x18\x01 \x01(\tR\bidentity\x12\x1f\n" +
+	"\vinstance_id\x18\x02 \x01(\tR\n" +
+	"instanceId\"S\n" +
+	"\x0fDBTokenResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x02 \x01(\x03R\texpiresIn2\xe2\a\n" +
 	"\x11FoundationService\x12^\n" +
 	"\tVaultRead\x12'.olympus.foundation.v1.VaultReadRequest\x1a(.olympus.foundation.v1.VaultReadResponse\x12a\n" +
 	"\n" +
@@ -889,7 +1002,8 @@ const file_olympus_foundation_v1_foundation_proto_rawDesc = "" +
 	"KMSDecrypt\x12!.olympus.foundation.v1.KMSRequest\x1a\".olympus.foundation.v1.KMSResponse\x12S\n" +
 	"\n" +
 	"KMSEncrypt\x12!.olympus.foundation.v1.KMSRequest\x1a\".olympus.foundation.v1.KMSResponse\x12X\n" +
-	"\aKMSSign\x12%.olympus.foundation.v1.KMSSignRequest\x1a&.olympus.foundation.v1.KMSSignResponseBqZoOlympusGCP-Foundation/40000-Communication-Contracts/430-Protocol-Definitions/000-gen/foundation/v1;foundationv1b\x06proto3"
+	"\aKMSSign\x12%.olympus.foundation.v1.KMSSignRequest\x1a&.olympus.foundation.v1.KMSSignResponse\x12b\n" +
+	"\x11MintDatabaseToken\x12%.olympus.foundation.v1.DBTokenRequest\x1a&.olympus.foundation.v1.DBTokenResponseBqZoOlympusGCP-Foundation/40000-Communication-Contracts/430-Protocol-Definitions/000-gen/foundation/v1;foundationv1b\x06proto3"
 
 var (
 	file_olympus_foundation_v1_foundation_proto_rawDescOnce sync.Once
@@ -903,7 +1017,7 @@ func file_olympus_foundation_v1_foundation_proto_rawDescGZIP() []byte {
 	return file_olympus_foundation_v1_foundation_proto_rawDescData
 }
 
-var file_olympus_foundation_v1_foundation_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_olympus_foundation_v1_foundation_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_olympus_foundation_v1_foundation_proto_goTypes = []any{
 	(*VaultReadRequest)(nil),       // 0: olympus.foundation.v1.VaultReadRequest
 	(*VaultReadResponse)(nil),      // 1: olympus.foundation.v1.VaultReadResponse
@@ -921,6 +1035,8 @@ var file_olympus_foundation_v1_foundation_proto_goTypes = []any{
 	(*KMSResponse)(nil),            // 13: olympus.foundation.v1.KMSResponse
 	(*KMSSignRequest)(nil),         // 14: olympus.foundation.v1.KMSSignRequest
 	(*KMSSignResponse)(nil),        // 15: olympus.foundation.v1.KMSSignResponse
+	(*DBTokenRequest)(nil),         // 16: olympus.foundation.v1.DBTokenRequest
+	(*DBTokenResponse)(nil),        // 17: olympus.foundation.v1.DBTokenResponse
 }
 var file_olympus_foundation_v1_foundation_proto_depIdxs = []int32{
 	0,  // 0: olympus.foundation.v1.FoundationService.VaultRead:input_type -> olympus.foundation.v1.VaultReadRequest
@@ -932,17 +1048,19 @@ var file_olympus_foundation_v1_foundation_proto_depIdxs = []int32{
 	12, // 6: olympus.foundation.v1.FoundationService.KMSDecrypt:input_type -> olympus.foundation.v1.KMSRequest
 	12, // 7: olympus.foundation.v1.FoundationService.KMSEncrypt:input_type -> olympus.foundation.v1.KMSRequest
 	14, // 8: olympus.foundation.v1.FoundationService.KMSSign:input_type -> olympus.foundation.v1.KMSSignRequest
-	1,  // 9: olympus.foundation.v1.FoundationService.VaultRead:output_type -> olympus.foundation.v1.VaultReadResponse
-	3,  // 10: olympus.foundation.v1.FoundationService.VaultWrite:output_type -> olympus.foundation.v1.VaultWriteResponse
-	5,  // 11: olympus.foundation.v1.FoundationService.CreateUser:output_type -> olympus.foundation.v1.CreateUserResponse
-	7,  // 12: olympus.foundation.v1.FoundationService.VerifyToken:output_type -> olympus.foundation.v1.VerifyTokenResponse
-	9,  // 13: olympus.foundation.v1.FoundationService.TestIAMPolicy:output_type -> olympus.foundation.v1.TestIAMPolicyResponse
-	11, // 14: olympus.foundation.v1.FoundationService.LookupIdentity:output_type -> olympus.foundation.v1.LookupIdentityResponse
-	13, // 15: olympus.foundation.v1.FoundationService.KMSDecrypt:output_type -> olympus.foundation.v1.KMSResponse
-	13, // 16: olympus.foundation.v1.FoundationService.KMSEncrypt:output_type -> olympus.foundation.v1.KMSResponse
-	15, // 17: olympus.foundation.v1.FoundationService.KMSSign:output_type -> olympus.foundation.v1.KMSSignResponse
-	9,  // [9:18] is the sub-list for method output_type
-	0,  // [0:9] is the sub-list for method input_type
+	16, // 9: olympus.foundation.v1.FoundationService.MintDatabaseToken:input_type -> olympus.foundation.v1.DBTokenRequest
+	1,  // 10: olympus.foundation.v1.FoundationService.VaultRead:output_type -> olympus.foundation.v1.VaultReadResponse
+	3,  // 11: olympus.foundation.v1.FoundationService.VaultWrite:output_type -> olympus.foundation.v1.VaultWriteResponse
+	5,  // 12: olympus.foundation.v1.FoundationService.CreateUser:output_type -> olympus.foundation.v1.CreateUserResponse
+	7,  // 13: olympus.foundation.v1.FoundationService.VerifyToken:output_type -> olympus.foundation.v1.VerifyTokenResponse
+	9,  // 14: olympus.foundation.v1.FoundationService.TestIAMPolicy:output_type -> olympus.foundation.v1.TestIAMPolicyResponse
+	11, // 15: olympus.foundation.v1.FoundationService.LookupIdentity:output_type -> olympus.foundation.v1.LookupIdentityResponse
+	13, // 16: olympus.foundation.v1.FoundationService.KMSDecrypt:output_type -> olympus.foundation.v1.KMSResponse
+	13, // 17: olympus.foundation.v1.FoundationService.KMSEncrypt:output_type -> olympus.foundation.v1.KMSResponse
+	15, // 18: olympus.foundation.v1.FoundationService.KMSSign:output_type -> olympus.foundation.v1.KMSSignResponse
+	17, // 19: olympus.foundation.v1.FoundationService.MintDatabaseToken:output_type -> olympus.foundation.v1.DBTokenResponse
+	10, // [10:20] is the sub-list for method output_type
+	0,  // [0:10] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -959,7 +1077,7 @@ func file_olympus_foundation_v1_foundation_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_olympus_foundation_v1_foundation_proto_rawDesc), len(file_olympus_foundation_v1_foundation_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
