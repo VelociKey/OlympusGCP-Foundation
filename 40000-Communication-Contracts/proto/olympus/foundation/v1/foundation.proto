@@ -24,6 +24,9 @@ service FoundationService {
 
   // --- Database Auth (Deepening) ---
   rpc MintDatabaseToken(DBTokenRequest) returns (DBTokenResponse);
+
+  // --- Workload Identity (Expansion) ---
+  rpc ImpersonateServiceAccount(ImpersonateRequest) returns (DBTokenResponse);
 }
 
 // Vault Messages
@@ -59,4 +62,10 @@ message DBTokenRequest {
 message DBTokenResponse {
   string access_token = 1;
   int64 expires_in = 2;
+}
+
+message ImpersonateRequest {
+  string instigator_identity = 1;
+  string target_service_account = 2;
+  repeated string scopes = 3;
 }

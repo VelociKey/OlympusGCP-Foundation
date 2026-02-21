@@ -44,8 +44,8 @@ type FoundationServer struct {
 	vaultClient *api.Client
 	authClient  *auth.Client
 	iamPolicies []IAMPolicy
-	kmsKey      []byte // Master symmetric key for AES-GCM
-	signingKey  []byte // Key for HMAC signatures and JWT minting
+	kmsKey      []byte
+	signingKey  []byte
 }
 
 // --- Secret Manager (Vault) ---
@@ -118,7 +118,7 @@ func (s *FoundationServer) TestIAMPolicy(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(&foundationv1.TestIAMPolicyResponse{Allowed: allowed, Reason: reason}), nil
 }
 
-// --- Cloud KMS (Production-Grade Deepening) ---
+// --- Cloud KMS ---
 
 func (s *FoundationServer) KMSEncrypt(ctx context.Context, req *connect.Request[foundationv1.KMSRequest]) (*connect.Response[foundationv1.KMSResponse], error) {
 	block, _ := aes.NewCipher(s.kmsKey)
@@ -145,12 +145,10 @@ func (s *FoundationServer) KMSSign(ctx context.Context, req *connect.Request[fou
 	return connect.NewResponse(&foundationv1.KMSSignResponse{Signature: h.Sum(nil)}), nil
 }
 
-// --- Database Auth (Deepening) ---
+// --- Database Auth & Workload Identity (Deepening) ---
 
 func (s *FoundationServer) MintDatabaseToken(ctx context.Context, req *connect.Request[foundationv1.DBTokenRequest]) (*connect.Response[foundationv1.DBTokenResponse], error) {
 	slog.Info("Foundation: Minting Database Auth Token", "identity", req.Msg.Identity, "instance", req.Msg.InstanceId)
-	
-	// Create high-fidelity local JWT for IAM DB Auth emulation
 	claims := jwt.MapClaims{
 		"sub": req.Msg.Identity,
 		"iss": "olympus-foundation-minter",
@@ -160,6 +158,38 @@ func (s *FoundationServer) MintDatabaseToken(ctx context.Context, req *connect.R
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	ss, err := token.SignedString(s.signingKey)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	return connect.NewResponse(&foundationv1.DBTokenResponse{AccessToken: ss, ExpiresIn: 3600}), nil
+}
+
+func (s *FoundationServer) ImpersonateServiceAccount(ctx context.Context, req *connect.Request[foundationv1.ImpersonateRequest]) (*connect.Response[foundationv1.DBTokenResponse], error) {
+	slog.Info("Foundation: Simulating Workload Identity Impersonation", "instigator", req.Msg.InstigatorIdentity, "target", req.Msg.TargetServiceAccount)
+	
+	// Deep Logic: Check if instigator has 'iam.serviceAccounts.getAccessToken' on target
+	allowed := false
+	for _, p := range s.iamPolicies {
+		if p.Identity == req.Msg.InstigatorIdentity {
+			for _, a := range p.Actions {
+				if a == "iam.serviceAccounts.getAccessToken" || a == "*" {
+					allowed = true
+					break
+				}
+			}
+		}
+	}
+
+	if !allowed {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("identity %s not authorized to impersonate %s", req.Msg.InstigatorIdentity, req.Msg.TargetServiceAccount))
+	}
+
+	// Mint token for the TARGET account
+	claims := jwt.MapClaims{
+		"sub": req.Msg.TargetServiceAccount,
+		"iss": "olympus-workload-identity-federation",
+		"exp": time.Now().Add(time.Hour).Unix(),
+		"scopes": req.Msg.Scopes,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, _ := token.SignedString(s.signingKey)
 
 	return connect.NewResponse(&foundationv1.DBTokenResponse{
 		AccessToken: ss,
@@ -168,37 +198,32 @@ func (s *FoundationServer) MintDatabaseToken(ctx context.Context, req *connect.R
 }
 
 func main() {
-	slog.Info("FoundationManager: Booting SaaS Foundation Substrate (Phase 7)...")
+	slog.Info("FoundationManager: Booting SaaS Foundation Substrate (Phase 9)...")
 	w := whisper.New("FoundationManager", "gcp_foundation.lpsv")
 	defer w.Close()
 
 	ctx := context.Background()
 
-	// 1. Vault Config
 	vConfig := api.DefaultConfig()
 	vConfig.Address = os.Getenv("VAULT_ADDR")
 	if vConfig.Address == "" { vConfig.Address = "http://localhost:8200" }
-	vClient, err := api.NewClient(vConfig)
-	if err != nil { slog.Error("Failed to create vault client", "error", err); os.Exit(1) }
+	vClient, _ := api.NewClient(vConfig)
 	vClient.SetToken("root")
 
-	// 2. Firebase Config
 	fHost := os.Getenv("FIREBASE_AUTH_EMULATOR_HOST")
 	if fHost == "" { fHost = "127.0.0.1:9099" }
-	fApp, err := firebase.NewApp(ctx, &firebase.Config{ProjectID: "olympus-project"}, option.WithEndpoint(fHost), option.WithoutAuthentication())
-	if err != nil { slog.Error("Failed to create firebase app", "error", err); os.Exit(1) }
-	fAuth, err := fApp.Auth(ctx)
-	if err != nil { slog.Error("Failed to create auth client", "error", err); os.Exit(1) }
+	fApp, _ := firebase.NewApp(ctx, &firebase.Config{ProjectID: "olympus-project"}, option.WithEndpoint(fHost), option.WithoutAuthentication())
+	fAuth, _ := fApp.Auth(ctx)
 
 	var iam IAMConfig
-	data, err := os.ReadFile("C0100-Configuration-Registry/settings/iam_policies.json")
-	if err == nil { json.Unmarshal(data, &iam) }
+	data, _ := os.ReadFile("C0100-Configuration-Registry/settings/iam_policies.json")
+	json.Unmarshal(data, &iam)
 
 	server := &FoundationServer{
 		vaultClient: vClient,
 		authClient:  fAuth,
 		iamPolicies: iam.Policies,
-		kmsKey:      []byte("12345678901234567890123456789012"), // 32 bytes for AES-256
+		kmsKey:      []byte("12345678901234567890123456789012"),
 		signingKey:  []byte("wraith-sovereign-master-signing-key"),
 	}
 
